@@ -66,3 +66,45 @@ void uart_puts(const char *s) {
         uart_putc(*s++);
     }
 }
+
+void uart_print_int(int32_t value) {
+    /* Worst case: "-2147483648" = 11 chars + null. */
+    char buf[12];
+    int  i = 0;
+    int  negative = 0;
+    uint32_t v;
+
+    if (value < 0) {
+        negative = 1;
+        v = (uint32_t)(-value);
+    } else {
+        v = (uint32_t)value;
+    }
+
+    /* Build digits in reverse. */
+    if (v == 0) {
+        buf[i++] = '0';
+    } else {
+        while (v > 0) {
+            buf[i++] = (char)('0' + (v % 10));
+            v /= 10;
+        }
+    }
+    if (negative) buf[i++] = '-';
+
+    /* Reverse and send. */
+    while (i--) uart_putc(buf[i]);
+}
+
+void uart_print_x100(int32_t value_x100) {
+    if (value_x100 < 0) {
+        uart_putc('-');
+        value_x100 = -value_x100;
+    }
+    int32_t whole = value_x100 / 100;
+    int32_t frac  = value_x100 % 100;
+    uart_print_int(whole);
+    uart_putc('.');
+    if (frac < 10) uart_putc('0');   /* leading zero, e.g. ".07" not ".7" */
+    uart_print_int(frac);
+}
