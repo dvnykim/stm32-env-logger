@@ -18,3 +18,5 @@ build/
 
 # Datasheets (too large for Git)
 docs/*.pdf
+
+scripts/venv/
