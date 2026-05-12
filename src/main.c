@@ -2,10 +2,7 @@
 #include "uart.h"
 #include "i2c.h"
 #include "sht31.h"
-
-static void crude_delay(uint32_t loops) {
-    for (volatile uint32_t i = 0; i < loops; i++) { }
-}
+#include "timer.h"
 
 int main(void) {
     /* --- LED setup --- */
@@ -16,27 +13,32 @@ int main(void) {
     /* --- Peripherals --- */
     uart_init();
     i2c_init();
+    timer_init_2s();
 
-    uart_puts("\r\n--- STM32L476 + SHT31 boot ---\r\n");
+    uart_puts("\r\n--- STM32L476 + SHT31 (timer-driven) ---\r\n");
 
     while (1) {
-        GPIOA->ODR ^= (1U << 5);                /* heartbeat LED */
+        if (sample_ready) {
+            sample_ready = 0;            /* consume the flag */
+            GPIOA->ODR ^= (1U << 5);     /* heartbeat */
 
-        int32_t t_x100, h_x100;
-        int rc = sht31_read(&t_x100, &h_x100);
+            int32_t t_x100, h_x100;
+            int rc = sht31_read(&t_x100, &h_x100);
 
-        if (rc == 0) {
-            uart_puts("Temp: ");
-            uart_print_x100(t_x100);
-            uart_puts(" C, Humidity: ");
-            uart_print_x100(h_x100);
-            uart_puts(" %RH\r\n");
-        } else {
-            uart_puts("SHT31 error: ");
-            uart_print_int(rc);
-            uart_puts("\r\n");
+            if (rc == 0) {
+                uart_puts("Temp: ");
+                uart_print_x100(t_x100);
+                uart_puts(" C, Humidity: ");
+                uart_print_x100(h_x100);
+                uart_puts(" %RH\r\n");
+            } else {
+                uart_puts("SHT31 error: ");
+                uart_print_int(rc);
+                uart_puts("\r\n");
+            }
         }
-
-        crude_delay(800000);                    /* ~1 sample/sec at 4 MHz */
+        /* Loop runs as fast as the CPU can spin. In a real product you'd
+         * add `__WFI();` here to put the CPU to sleep until the next
+         * interrupt — saves power. For now, the busy spin is fine. */
     }
 }
